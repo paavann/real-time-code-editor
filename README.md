@@ -1,73 +1,103 @@
-# React + TypeScript + Vite
+# Real-Time Pair Programming Web Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A full-stack real-time collaborative code editor built with **React + Monaco Editor** on the frontend and **FastAPI + WebSockets + PostgreSQL** on the backend.  
+Users can create rooms, join sessions, and collaborate live with instant synchronization of edits across all connected clients.
 
-Currently, two official plugins are available:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## React Compiler
+## How to Run Both Services
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Backend (FastAPI)
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+#### 1. Install dependencies
+```bash
+cd backend
+python -m venv venv
+pip install -r requirements.txt
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+#### 2. Create environment variables
+##### Inside backend/, create a .env file:
+```php-template
+DATABASE_URL=postgresql+psycopg2://<user>:<password>@localhost:5432/<dbname>
 ```
+
+#### 3. (Optional) Run database migrations
+```bash
+alembic upgrade head
+```
+
+#### 4. Start the backend server
+```bash
+uvicorn app.main:app --reload
+```
+Backend runs at: http://localhost:8000
+
+
+### Frontend (React + Vite)
+
+#### 1. Install dependencies
+```bash
+cd frontend
+npm install
+```
+
+#### 2. Create environment variables
+##### Inside frontend/, create a .env file:
+```php-template
+VITE_BASE_API_URL=http://localhost:8000
+VITE_BASE_WS_URL=ws://localhost:8000
+```
+
+#### 3. Start the development server
+```bash
+npm run dev
+```
+frontend runs at: http://localhost:8000
+
+
+
+## Architecture & Design Choices
+
+### Frontend
+* React (Vite) for a fast, modern development workflow.
+* Monaco Editor provides a VS Code–like editing experience.
+* Redux Toolkit manages global editor state and AI auto-completion.
+* WebSocket client handles all real-time events (code sync, room events, future cursor sync).
+
+### Backend
+* FastAPI chosen for its async-first architecture and excellent WebSocket support.
+* WebSocket endpoint broadcasts code updates to everyone in the room.
+* Room manager keeps track of connected clients and the latest code state.
+* PostgreSQL + SQLAlchemy Core used for persistence.
+The rooms table stores:
+  * id (UUID generated in backend)
+  * created_at
+  * last_code_state
+
+### Why This Architecture?
+* WebSockets offer low-latency, full-duplex communication suitable for collaborative editing.
+* Monaco ensures familiar coding UX and strong language tooling.
+* Storing only the last code state keeps persistence simple while still allowing resumable sessions.
+* SQLAlchemy Core is lighter than ORM and fits this small schema well.
+
+
+## What Could Be Improved With More Time
+
+* Replace in-memory room manager with Redis for horizontal scaling and persistence.
+* Add CRDT/OT (like Yjs or automerge) to handle simultaneous edits more gracefully.
+* Authentication system for identifying users in a room.
+* Cursor & selection synchronization so collaborators can see each other’s positions.
+* Snapshots & version history for code recovery and audit.
+* Automated tests for WebSockets, REST endpoints, and editor behavior.
+* Docker Compose for one-command full app startup.
+
+
+## Known Limitations
+
+* No user authentication — sessions are anonymous.
+* Room state is stored in memory — restarting backend loses active room state.
+* No CRDT or OT — simultaneous conflicting edits may override each other.
+* Only one table persists data; no history/versioning.
+* AI auto-completion depends on external model latency.
+* Cursor sync and presence indicators are not yet implemented.
