@@ -1,6 +1,8 @@
 from typing import Dict
 from fastapi import WebSocket
 import json
+from app.services.room_repository import RoomRepository
+
 
 
 class RoomManager:
@@ -10,29 +12,37 @@ class RoomManager:
 
     def create_room(self, room_id: str):
         if room_id not in self.active_rooms:
+            saved_code = RoomRepository.load_code(room_id)
             self.active_rooms[room_id] = {
-                "code": "",
+                "code": saved_code,
                 "connections": set(),
             }
+
 
     async def connect(self, room_id: str, websocket: WebSocket):
         await websocket.accept()
         self.create_room(room_id)
 
-        self.active_rooms[room_id]["connections"].add(websocket)
+        room = self.active_rooms[room_id]
+        room["connections"].add(websocket)
 
         await websocket.send_text(json.dumps({
             "type": "INIT_CODE",
-            "code": self.active_rooms[room_id]["code"]
+            "code": room["code"]
         }))
 
 
     def disconnect(self, room_id: str, websocket: WebSocket):
         room = self.active_rooms.get(room_id)
-        if room:
-            room["connections"].discard(websocket)
-            if not room["connections"]:
-                del self.active_rooms[room_id]
+        if not room:
+            return
+        
+        room["connections"].discard(websocket)
+
+        if not room["connections"]:
+            final_code = room["code"]
+            RoomRepository.save_code(room_id, final_code)
+            del self.active_rooms[room_id]
 
 
     async def broadcast(self, room_id: str, message: str, sender: WebSocket):
