@@ -19,7 +19,10 @@ export default function CodeEditor({ roomId }: { roomId: string }) {
     const editorRef = useRef<any>(null)
     const monacoRef = useRef<any>(null)
     const decorationRef = useRef<string[]>([])
-    const suggestionRef = useRef<string | null>(suggestion)
+    const suggestionRef = useRef<string | null>(null)
+
+    const initializedRef = useRef(false)
+    const suppressOutgoingRef = useRef(false)
 
     const handleMount: OnMount = (editor, monaco) => {
         editorRef.current = editor
@@ -37,7 +40,10 @@ export default function CodeEditor({ roomId }: { roomId: string }) {
             const currentCode = editor.getValue()
             const newCode = currentCode + currentSuggestion
 
+            suppressOutgoingRef.current = true
             editor.setValue(newCode)
+            suppressOutgoingRef.current = false
+
             dispatch(setCode(newCode))
             dispatch(clearSuggestion())
 
@@ -51,7 +57,10 @@ export default function CodeEditor({ roomId }: { roomId: string }) {
 
     const handleChange = (value: string | undefined) => {
         const newCode = value ?? ""
+        if(!initializedRef.current || suppressOutgoingRef.current) return
+
         dispatch(setCode(newCode))
+
         if(wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: "CODE_UPDATE", code: newCode }))
         }
@@ -73,8 +82,33 @@ export default function CodeEditor({ roomId }: { roomId: string }) {
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data)
-            if(data.type === "CODE_UPDATE") {
+
+            if(data.type === "INIT_CODE") {
+                const editor = editorRef.current
+                if(editor) {
+                    suppressOutgoingRef.current = true
+                    editor.setValue(data.code)
+                    suppressOutgoingRef.current = false
+                }
+
                 dispatch(setCode(data.code))
+                initializedRef.current = true
+                return
+            }
+
+            if(data.type === "CODE_UPDATE") {
+                const editor = editorRef.current
+                dispatch(setCode(data.code))
+
+                if(editor) {
+                    const selection = editor.getSelection()
+
+                    suppressOutgoingRef.current = true
+                    editor.setValue(data.code)
+                    suppressOutgoingRef.current = false
+
+                    if(selection) editor.setSelection(selection)
+                }
             }
         }
 

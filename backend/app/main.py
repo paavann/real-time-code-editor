@@ -12,7 +12,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(health.router, prefix="/health")
 app.include_router(rooms.router, prefix="/rooms")
 app.include_router(ws.router, prefix="/ws")
 app.include_router(autocomplete.router, prefix="/autocomplete")
