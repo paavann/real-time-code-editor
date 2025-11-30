@@ -2,14 +2,15 @@ import { Form, useNavigate, useActionData, redirect, type ActionFunction } from 
 import axios from "axios"
 import type { FormEvent } from "react"
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL
+const BASE_URL = import.meta.env.VITE_BASE_API_URL
 
 export const action: ActionFunction = async () => {
     try {
-        const res = await axios.post(`${BASE_URL}/rooms`)
+        const res = await axios.post(`${BASE_URL}/rooms/`)
+        console.log("response: ", res)
         const roomId = res.data.roomId
         if(!roomId) throw new Error("invalid roomId from backend.")
-        return redirect(`/rooms/${roomId}`)
+        return redirect(`room/${roomId}`)
     } catch(err) {
         throw new Response("failed to create room.", { status: 500 })
     }
